@@ -12,19 +12,16 @@ module Snap.Extension.HDBC.Sqlite3
 
 import Control.Monad.IO.Class ( liftIO )
 
-import Database.HDBC         ( ConnWrapper (..) )
+import Database.HDBC
 import Database.HDBC.Sqlite3 ( connectSqlite3 )
 
 import Snap.Extension ( Initializer, mkInitializer )
 import Snap.Extension.HDBC
-
-
-
+     
 -- | The Initializer for 'Connection'.
--- The 'FilePath' points the the Sqlite3 database that is to 
--- be connected to.
-hdbcInitializer :: FilePath -> Initializer HDBCState
-hdbcInitializer path =
-  liftIO (connectSqlite3 path) >>= mkInitializer . HDBCState . ConnWrapper
-
-
+-- The 'InitInfo' contains Sqlite3 connection string and 'CREATE TABLE IF NOT EXISTS' statements for the database. 
+hdbcInitializer :: InitInfo -> Initializer HDBCState
+hdbcInitializer info = do
+    conn <- liftIO (connectSqlite3 (connString info))
+    mapM_ (liftIO . flip (run conn) []) (describeTables info) >> liftIO (commit conn)
+    mkInitializer $ HDBCState $ ConnWrapper conn
